@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+
+# Local data and rendered assets
+style-library/*/video_analyses/*/frames/
+style-library/*/video_analyses/*/audio/
+style-library/*/video_analyses/*/cache/
+projects/*/assets/
+projects/*/render/
+projects/*/exports/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
