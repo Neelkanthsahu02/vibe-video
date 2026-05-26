@@ -10,6 +10,7 @@ import { buildChannelStyleProfile } from "../style/styleProfileBuilder.js";
 import { planScenes } from "../planner/scenePlanner.js";
 import { sourceAssetsForProject } from "../sourcing/sourceAssets.js";
 import { reviewProjectAssets } from "../review/reviewAssets.js";
+import { buildTimelineForProject } from "../timeline/buildTimeline.js";
 import { ytDlpAvailable } from "../sourcing/ytDlp.js";
 import { checkBinaries } from "../utils/ffmpeg.js";
 
@@ -288,6 +289,49 @@ program
     console.log(
       `${t.accepted}/${t.candidates} accepted across ${t.scenes} scenes | ${t.scenes_without_accepted} scenes have no accepted assets`,
     );
+  });
+
+program
+  .command("build-timeline")
+  .description(
+    "Phase 5 — assemble timeline.json from scene_plan + asset_review + Style Library + asset packs",
+  )
+  .requiredOption("-p, --project <name>", "Project name")
+  .option("--width <n>", "Composition width", (v) => parseInt(v, 10), 1920)
+  .option("--height <n>", "Composition height", (v) => parseInt(v, 10), 1080)
+  .option("--fps <n>", "Frames per second", (v) => parseInt(v, 10), 30)
+  .option("--captions", "Burn narration captions on the timeline", false)
+  .option("--skip-music", "Don't schedule music", false)
+  .option("--skip-sfx", "Don't schedule SFX", false)
+  .action(async (opts: {
+    project: string;
+    width: number;
+    height: number;
+    fps: number;
+    captions?: boolean;
+    skipMusic?: boolean;
+    skipSfx?: boolean;
+  }) => {
+    const res = await buildTimelineForProject({
+      projectName: opts.project,
+      width: opts.width,
+      height: opts.height,
+      fps: opts.fps,
+      captions: opts.captions,
+      skipMusic: opts.skipMusic,
+      skipSfx: opts.skipSfx,
+    });
+    console.log("timeline.json →", res.timelinePath);
+    console.log(
+      `${res.timeline.visuals.length} visuals | ${res.timeline.audio.music_cues.length} music | ${res.timeline.audio.sfx_cues.length} sfx | ${res.timeline.warnings.length} warnings`,
+    );
+    if (res.timeline.warnings.length > 0) {
+      console.log("warnings:");
+      for (const w of res.timeline.warnings.slice(0, 8)) console.log("  -", w);
+      if (res.timeline.warnings.length > 8) {
+        console.log(`  … ${res.timeline.warnings.length - 8} more`);
+      }
+    }
   });
 
 program

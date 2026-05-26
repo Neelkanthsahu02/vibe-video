@@ -307,8 +307,53 @@ npx tsx src/cli/index.ts review -p khloe-tristan-timeline \
 Per-candidate verdicts cache to `projects/<slug>/cache/asset_reviews/` so
 re-runs are cheap; `--force` regenerates.
 
+## Phase 5 — Timeline Builder
+
+`vibe build-timeline` assembles a framework-agnostic `timeline.json` from
+the Phase 1 Style Library + Phase 2 scene plan + Phase 3 candidates +
+Phase 4 vision verdicts, and renders through a Remotion composition that
+reads that JSON.
+
+What the builder does for each beat:
+
+- Picks the visual: `asset_review.best_asset_id` → top accepted entry →
+  highest-scoring fallback (logged as a warning).
+- Applies `suggested_crop` (normalized rect + focal point),
+  `suggested_motion` (Ken Burns / pan / push-in), and
+  `best_clip_segment` from the vision review.
+- Auto-promotes portrait/tall images shown fullscreen to
+  `blurred_fill_portrait` (blurred enlarged background + contained fg).
+- Resolves transitions to actual files in
+  `asset-library/transitions/` via filename keyword match; falls back to
+  the channel's `transition_rules.by_context[<emotional_purpose>][0]`
+  when the planner left a transition as `unknown`.
+- Adds overlays from `lower_third_text`, `title_card_text`,
+  `overlay_text`; optional burned narration captions with `--captions`.
+- Schedules music as one cue per consecutive same-`music_mood` arc,
+  picked from `asset-library/music/` by mood keyword. Each cue carries
+  `gain`, `duck_gain`, fades.
+- Schedules SFX from `asset-library/sfx/` using
+  `beat.sfx_suggestion` → `sfx_rules.by_context[<purpose>]` →
+  `sfx_rules.most_used` → keyword fallback. Throttled to one every 0.6s.
+- Records duck windows for every beat with narration; the Remotion
+  composition ducks all music cues inside those windows.
+
+Outputs `projects/<slug>/render/timeline.json` and surfaces warnings for
+beats with no accepted assets or any other manual-attention issues.
+
+```bash
+npx tsx src/cli/index.ts build-timeline -p khloe-tristan-timeline
+
+# 4K, captions on, no music (e.g. for review pass)
+npx tsx src/cli/index.ts build-timeline -p khloe-tristan-timeline \
+  --width 3840 --height 2160 --fps 60 --captions --skip-music
+
+# Preview in the Remotion Studio
+npx remotion studio remotion/index.ts
+```
+
 ## Next phases (not yet implemented)
 
-- Phase 5: `vibe build-timeline` — Remotion timeline construction.
+- Phase 6: `vibe render` — local Remotion render to MP4.
 - Phase 6: `vibe render` — local Remotion render.
 - Phase 7: Electron desktop app.
