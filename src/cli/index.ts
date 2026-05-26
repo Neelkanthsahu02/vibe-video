@@ -9,6 +9,7 @@ import { analyzeVideo } from "../analyzer/analyzeVideo.js";
 import { buildChannelStyleProfile } from "../style/styleProfileBuilder.js";
 import { planScenes } from "../planner/scenePlanner.js";
 import { sourceAssetsForProject } from "../sourcing/sourceAssets.js";
+import { reviewProjectAssets } from "../review/reviewAssets.js";
 import { ytDlpAvailable } from "../sourcing/ytDlp.js";
 import { checkBinaries } from "../utils/ffmpeg.js";
 
@@ -251,6 +252,41 @@ program
     console.log("manifest.json →", res.manifestPath);
     console.log(
       `${res.manifest.totals.scenes} scenes | ${res.manifest.totals.images} images | ${res.manifest.totals.clips} clips | ${(res.manifest.totals.bytes / 1024 / 1024).toFixed(1)} MB`,
+    );
+  });
+
+program
+  .command("review")
+  .description(
+    "Phase 4 — vision-review every candidate asset, mark accept/reject, suggest crop/motion/layout",
+  )
+  .requiredOption("-p, --project <name>", "Project name")
+  .option("--scenes <list>", "Comma-separated scene_ids to limit review to")
+  .option("--concurrency <n>", "Parallel vision calls", (v) => parseInt(v, 10))
+  .option(
+    "--copy-approved",
+    "Also copy accepted assets into assets/approved/ and rejected into assets/rejected/",
+    false,
+  )
+  .option("--force", "Regenerate per-candidate vision verdicts", false)
+  .action(async (opts: {
+    project: string;
+    scenes?: string;
+    concurrency?: number;
+    copyApproved?: boolean;
+    force?: boolean;
+  }) => {
+    const res = await reviewProjectAssets({
+      projectName: opts.project,
+      sceneIds: opts.scenes ? opts.scenes.split(",").map((s) => s.trim()) : undefined,
+      concurrency: opts.concurrency,
+      copyApproved: opts.copyApproved,
+      force: opts.force,
+    });
+    console.log("asset_review.json →", res.reviewPath);
+    const t = res.review.totals;
+    console.log(
+      `${t.accepted}/${t.candidates} accepted across ${t.scenes} scenes | ${t.scenes_without_accepted} scenes have no accepted assets`,
     );
   });
 

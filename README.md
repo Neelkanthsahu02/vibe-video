@@ -262,9 +262,53 @@ projects/<slug>/assets/
   rejected/
 ```
 
+## Phase 4 — Visual Quality Checker
+
+`vibe review` runs every candidate from Phase 3 through an OpenRouter vision
+model that answers eight strict questions per asset:
+
+1. Is it the correct person/topic?
+2. Is it relevant to the beat?
+3. Is it clear / high quality?
+4. Is it blurry / stretched / watermarked / unrelated?
+5. Does it match the emotional tone?
+6. Accept or reject?
+7. Where should it be cropped? (normalized rect + focal point)
+8. How should it be used? (layout, motion, best clip sub-segment)
+
+Clips are summarized by extracting 3 representative frames at 20% / 50% /
+80% positions before being sent to the vision model — the model sees the
+whole clip, not just the title card.
+
+Output `projects/<slug>/plan/asset_review.json` schema (see
+[`src/schemas/assetReview.ts`](src/schemas/assetReview.ts)):
+
+- per-asset: `accept_or_reject`, `relevance_score`, `quality_score`,
+  `emotional_tone_match`, `reason`, `rejection_reasons[]`,
+  `is_watermarked` / `is_blurry` / `is_stretched` /
+  `appears_ai_generated`, `suggested_crop` (normalized), `suggested_motion`,
+  `suggested_layout`, `best_use_case`, `best_clip_segment` (clips only),
+  `vision_confidence`
+- per-scene: `accepted_count`, `rejected_count`, `best_asset_id` (composite
+  relevance-weighted pick), `notes[]`
+- totals: how many scenes still have no accepted assets so you can re-source
+
+```bash
+npx tsx src/cli/index.ts review -p khloe-tristan-timeline
+
+# Also copy accepted/rejected files into assets/approved|rejected/ on disk
+npx tsx src/cli/index.ts review -p khloe-tristan-timeline --copy-approved
+
+# Re-review only a subset of scenes after fixing their candidates
+npx tsx src/cli/index.ts review -p khloe-tristan-timeline \
+  --scenes scene_0007,scene_0012 --force
+```
+
+Per-candidate verdicts cache to `projects/<slug>/cache/asset_reviews/` so
+re-runs are cheap; `--force` regenerates.
+
 ## Next phases (not yet implemented)
 
-- Phase 4: `vibe review` — vision quality check on candidate assets.
 - Phase 5: `vibe build-timeline` — Remotion timeline construction.
 - Phase 6: `vibe render` — local Remotion render.
 - Phase 7: Electron desktop app.
