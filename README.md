@@ -143,10 +143,83 @@ per-beat vision calls, SFX matching) writes a cache file under the video's
   else (ffmpeg, PySceneDetect, librosa, OpenCV) runs locally.
 - Phase 2's image/clip discovery will use Brave Search + yt-dlp, also local.
 
+## Phase 2 — Script + Voiceover Scene Planner
+
+`vibe plan` consumes a `channel_style_profile.json` (built in Phase 1), a
+`script.txt`, and a `voiceover.wav/mp3` and produces `scene_plan.json` for
+Phase 3 asset sourcing.
+
+Pipeline:
+
+1. **Transcribe** the voiceover with `faster-whisper` locally (word-level
+   timestamps, VAD on, language auto-detect).
+2. **Align** the canonical script to the recognized timestamps via fuzzy
+   token matching with bounded look-ahead. Unmatched script words get
+   interpolated timestamps so every word has a usable `(start, end)`.
+3. **Segment** aligned sentences into beats whose durations match the
+   channel's pacing target (`channel_style_profile.average_visual_change_seconds`).
+   Sentences shorter than 55% of target merge forward; sentences longer
+   than 170% of target split at internal punctuation / conjunction
+   boundaries.
+4. **Plan each beat** via the reasoning LLM, constrained by the Style
+   Library. Each output beat cites which rule it followed in
+   `style_library_rule_used`.
+5. **Global synthesis** of intro/ending strategy, emotional arc, music
+   arc.
+
+### Project layout (created on first `vibe plan`)
+
+```
+projects/<project-slug>/
+  input/
+    script.txt
+    voiceover.wav     # or .mp3 / .m4a
+  plan/
+    transcript.json
+    script_alignment.json
+    scene_plan.json
+  assets/
+    candidates/{images,clips}/
+    approved/{images,clips}/
+    rejected/
+  render/
+  exports/
+  cache/
+    beat_plans/
+```
+
+### CLI
+
+```bash
+# Place script.txt and voiceover.wav in projects/<slug>/input/, then:
+npx tsx src/cli/index.ts plan \
+  -p "khloe-tristan-timeline" \
+  -c "SpillRumors"
+
+# Or point at any locations:
+npx tsx src/cli/index.ts plan \
+  -p "khloe-tristan-timeline" -c "SpillRumors" \
+  --script ./writing/khloe.txt --voiceover ./tts/khloe.wav \
+  --whisper-model small --pacing 3.2
+```
+
+### scene_plan.json schema (per beat)
+
+`scene_id`, `index`, `start_time`, `end_time`, `duration`, `narration_text`,
+`beat_summary`, `emotional_tone`, `script_function`
+(`intro|context|setup|betrayal|scandal|reveal|emotional_reflection|timeline_explanation|public_reaction|ending`),
+`visual_goal`, `asset_type_needed`, `image_search_queries[]`,
+`youtube_clip_search_queries[]`, `headline_search_queries[]`,
+`suggested_visual_layout`, `camera_motion`, `overlay_text`,
+`lower_third_text`, `title_card_text`, `motion_graphic_instruction`,
+`transition_in`, `transition_out`, `sfx_suggestion`, `music_mood`,
+`editing_notes`, `style_library_rule_used`, `alignment_confidence`.
+
+See [`src/schemas/scenePlan.ts`](src/schemas/scenePlan.ts) for the full
+schema.
+
 ## Next phases (not yet implemented)
 
-- Phase 2: `vibe plan` — script + voiceover → `scene_plan.json` driven by the
-  Style Library.
 - Phase 3: `vibe source` — Brave image search + YouTube clip download per scene.
 - Phase 4: `vibe review` — vision quality check on candidate assets.
 - Phase 5: `vibe build-timeline` — Remotion timeline construction.

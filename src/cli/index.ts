@@ -7,6 +7,7 @@ import { config } from "../config.js";
 import { ensureDir, slugify } from "../utils/paths.js";
 import { analyzeVideo } from "../analyzer/analyzeVideo.js";
 import { buildChannelStyleProfile } from "../style/styleProfileBuilder.js";
+import { planScenes } from "../planner/scenePlanner.js";
 import { checkBinaries } from "../utils/ffmpeg.js";
 
 const log = createLogger("cli");
@@ -147,6 +148,59 @@ program
     console.log("channel_style_profile.json →", res.profilePath);
     console.log(
       `confidence_score: ${res.profile.confidence_score} (videos=${res.profile.source_video_count})`,
+    );
+  });
+
+program
+  .command("plan")
+  .description(
+    "Phase 2 — generate scene_plan.json from script + voiceover using the channel Style Library",
+  )
+  .requiredOption("-p, --project <name>", "Project name (workspace under projects/)")
+  .requiredOption("-c, --channel <name>", "Channel name whose Style Library to use")
+  .option("--channel-slug <slug>", "Override channel slug")
+  .option("--script <path>", "Path to script.txt (default: projects/<slug>/input/script.txt)")
+  .option(
+    "--voiceover <path>",
+    "Path to voiceover audio (default: projects/<slug>/input/voiceover.wav|mp3|m4a)",
+  )
+  .option("--whisper-model <name>", "faster-whisper model: tiny|base|small|medium|large-v3")
+  .option("--whisper-device <name>", "cpu|cuda")
+  .option("--whisper-compute <name>", "int8|int8_float16|float16|float32")
+  .option("--language <code>", "Force language code (e.g. en)")
+  .option("--pacing <seconds>", "Override pacing target seconds per beat", parseFloat)
+  .option("--force", "Regenerate even if cached outputs exist", false)
+  .action(async (opts: {
+    project: string;
+    channel: string;
+    channelSlug?: string;
+    script?: string;
+    voiceover?: string;
+    whisperModel?: string;
+    whisperDevice?: string;
+    whisperCompute?: string;
+    language?: string;
+    pacing?: number;
+    force?: boolean;
+  }) => {
+    const res = await planScenes({
+      projectName: opts.project,
+      channelName: opts.channel,
+      channelSlug: opts.channelSlug,
+      scriptPath: opts.script,
+      voiceoverPath: opts.voiceover,
+      whisperModel: opts.whisperModel,
+      whisperDevice: opts.whisperDevice,
+      whisperCompute: opts.whisperCompute,
+      language: opts.language,
+      pacingTargetSeconds: opts.pacing,
+      force: opts.force,
+    });
+    console.log("scene_plan.json        →", res.scenePlanPath);
+    console.log("transcript.json        →", res.transcriptPath);
+    console.log("script_alignment.json  →", res.alignmentPath);
+    console.log(
+      `${res.plan.totals.beats} beats | avg ${res.plan.totals.average_beat_duration.toFixed(2)}s | coverage ${res.plan.totals.coverage_seconds.toFixed(1)}s / ${res.plan.voiceover_duration.toFixed(1)}s`,
     );
   });
 
