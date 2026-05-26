@@ -8,6 +8,8 @@ import { ensureDir, slugify } from "../utils/paths.js";
 import { analyzeVideo } from "../analyzer/analyzeVideo.js";
 import { buildChannelStyleProfile } from "../style/styleProfileBuilder.js";
 import { planScenes } from "../planner/scenePlanner.js";
+import { sourceAssetsForProject } from "../sourcing/sourceAssets.js";
+import { ytDlpAvailable } from "../sourcing/ytDlp.js";
 import { checkBinaries } from "../utils/ffmpeg.js";
 
 const log = createLogger("cli");
@@ -22,17 +24,23 @@ program
   .command("doctor")
   .description("Check that required binaries are installed")
   .action(async () => {
-    const bins = await checkBinaries();
+    const [bins, ytOk] = await Promise.all([
+      checkBinaries(),
+      ytDlpAvailable(),
+    ]);
     console.log("Binary check:");
     console.log(`  ffmpeg:  ${bins.ffmpeg ? "ok" : "MISSING"}  (${config.bins.ffmpeg})`);
     console.log(`  ffprobe: ${bins.ffprobe ? "ok" : "MISSING"}  (${config.bins.ffprobe})`);
     console.log(`  python:  ${bins.python ? "ok" : "MISSING"}  (${config.bins.python})`);
+    console.log(`  yt-dlp:  ${ytOk ? "ok" : "MISSING"}  (${config.bins.ytDlp})`);
     console.log("");
     console.log(`OpenRouter key: ${config.openrouter.apiKey ? "set" : "MISSING"}`);
+    console.log(`Brave key:      ${config.brave.apiKey ? "set" : "MISSING"}`);
     console.log(`Vision model:   ${config.openrouter.visionModel}`);
     console.log(`Reasoning model:${config.openrouter.reasoningModel}`);
     console.log(`Style library:  ${config.styleLibraryDir}`);
     console.log(`Asset library:  ${config.assetLibraryDir}`);
+    console.log(`Projects dir:   ${config.projectsDir}`);
   });
 
 program
@@ -201,6 +209,48 @@ program
     console.log("script_alignment.json  →", res.alignmentPath);
     console.log(
       `${res.plan.totals.beats} beats | avg ${res.plan.totals.average_beat_duration.toFixed(2)}s | coverage ${res.plan.totals.coverage_seconds.toFixed(1)}s / ${res.plan.voiceover_duration.toFixed(1)}s`,
+    );
+  });
+
+program
+  .command("source")
+  .description(
+    "Phase 3 — source real images (Brave) and YouTube clips (yt-dlp) for every beat in scene_plan.json",
+  )
+  .requiredOption("-p, --project <name>", "Project name")
+  .option("--images-per-scene <n>", "Image candidates per scene", (v) => parseInt(v, 10), 6)
+  .option("--clips-per-scene <n>", "Clip candidates per scene to download", (v) => parseInt(v, 10), 2)
+  .option("--brave-per-query <n>", "Brave image results per query", (v) => parseInt(v, 10), 6)
+  .option("--ytdlp-per-query <n>", "YouTube candidates per query", (v) => parseInt(v, 10), 6)
+  .option("--max-clip-duration <seconds>", "Skip clips longer than this", (v) => parseInt(v, 10), 900)
+  .option("--skip-images", "Skip image sourcing entirely", false)
+  .option("--skip-clips", "Skip clip sourcing entirely", false)
+  .option("--force", "Regenerate even if cached", false)
+  .action(async (opts: {
+    project: string;
+    imagesPerScene: number;
+    clipsPerScene: number;
+    bravePerQuery: number;
+    ytdlpPerQuery: number;
+    maxClipDuration: number;
+    skipImages?: boolean;
+    skipClips?: boolean;
+    force?: boolean;
+  }) => {
+    const res = await sourceAssetsForProject({
+      projectName: opts.project,
+      imagesPerScene: opts.imagesPerScene,
+      clipsPerScene: opts.clipsPerScene,
+      bravePerQuery: opts.bravePerQuery,
+      ytdlpPerQuery: opts.ytdlpPerQuery,
+      maxClipDuration: opts.maxClipDuration,
+      skipImages: opts.skipImages,
+      skipClips: opts.skipClips,
+      force: opts.force,
+    });
+    console.log("manifest.json →", res.manifestPath);
+    console.log(
+      `${res.manifest.totals.scenes} scenes | ${res.manifest.totals.images} images | ${res.manifest.totals.clips} clips | ${(res.manifest.totals.bytes / 1024 / 1024).toFixed(1)} MB`,
     );
   });
 

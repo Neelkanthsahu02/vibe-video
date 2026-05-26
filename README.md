@@ -218,9 +218,52 @@ npx tsx src/cli/index.ts plan \
 See [`src/schemas/scenePlan.ts`](src/schemas/scenePlan.ts) for the full
 schema.
 
+## Phase 3 — Asset Sourcing
+
+`vibe source` reads `scene_plan.json` and downloads real candidate assets per
+scene into the project workspace. No AI-generated visuals, no random stock
+footage.
+
+- **Images**: Brave Image Search API per `image_search_queries[]` (and
+  `headline_search_queries[]` with " headline screenshot" appended).
+  Candidates are downloaded with sharp validation (min long edge, max bytes,
+  re-encoded JPEG for predictability) and a SHA-1 of the source URL as the
+  filename so re-runs are cheap.
+- **Clips**: `yt-dlp ytsearch:` for `youtube_clip_search_queries[]`. Metadata
+  is fetched first across all queries, deduped by video id, ranked by view
+  count, filtered by `--max-clip-duration`, then the top N are downloaded at
+  ≤720p mp4.
+- **Manifest**: every candidate ends up in
+  `projects/<slug>/assets/candidates/manifest.json` with full provenance —
+  query, source URL, page URL, publisher, dimensions, bytes, format, and
+  YouTube id/channel. Phase 4 (Visual Quality Checker) consumes this.
+
+```bash
+# Get a free Brave Search API key at https://brave.com/search/api/
+# Install yt-dlp: pip install -U yt-dlp  (or `brew install yt-dlp`)
+
+npx tsx src/cli/index.ts source -p khloe-tristan-timeline
+npx tsx src/cli/index.ts source -p khloe-tristan-timeline \
+  --images-per-scene 8 --clips-per-scene 3 --max-clip-duration 600
+
+# Skip clips on first pass to iterate cheaply on images
+npx tsx src/cli/index.ts source -p khloe-tristan-timeline --skip-clips
+```
+
+Folder layout:
+
+```
+projects/<slug>/assets/
+  candidates/
+    manifest.json
+    images/<scene_id>/<sha>.jpg
+    clips/<scene_id>/yt_<videoId>.mp4
+  approved/   # populated in Phase 4
+  rejected/
+```
+
 ## Next phases (not yet implemented)
 
-- Phase 3: `vibe source` — Brave image search + YouTube clip download per scene.
 - Phase 4: `vibe review` — vision quality check on candidate assets.
 - Phase 5: `vibe build-timeline` — Remotion timeline construction.
 - Phase 6: `vibe render` — local Remotion render.
