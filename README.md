@@ -352,8 +352,40 @@ npx tsx src/cli/index.ts build-timeline -p khloe-tristan-timeline \
 npx remotion studio remotion/index.ts
 ```
 
+## Phase 6 — Local Render
+
+`vibe render` drives `@remotion/bundler` + `@remotion/renderer`
+programmatically to write a finished MP4 from `timeline.json`. No CLI
+shelling — the timeline is passed as `inputProps` directly so the same
+composition powers the studio preview and the headless render.
+
+Output: `projects/<slug>/exports/<slug>-<timestamp>.mp4`.
+
+Headless Chrome runs with `disableWebSecurity: true` so it can load the
+`file://` references our timeline emits (downloaded images, downloaded
+YouTube clips, asset-library transitions / music / SFX, the voiceover).
+
+```bash
+npx tsx src/cli/index.ts render -p khloe-tristan-timeline
+
+# 30s preview window, h264, 8 parallel tabs
+npx tsx src/cli/index.ts render -p khloe-tristan-timeline \
+  --range 12.0,42.0 --concurrency 8
+
+# Lossless PNG frames + ProRes for archival
+npx tsx src/cli/index.ts render -p khloe-tristan-timeline \
+  --codec prores --image-format png
+
+# Pin a custom output path and allow overwrite
+npx tsx src/cli/index.ts render -p khloe-tristan-timeline \
+  -o ./out/khloe-final.mp4 --overwrite
+```
+
+Render reports a single throttled progress line per phase (bundle, render)
+so logs stay readable on non-TTY shells.
+
 ## Next phases (not yet implemented)
 
-- Phase 6: `vibe render` — local Remotion render to MP4.
+- Phase 7: Electron desktop app.
 - Phase 6: `vibe render` — local Remotion render.
 - Phase 7: Electron desktop app.

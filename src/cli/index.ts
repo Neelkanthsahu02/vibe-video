@@ -11,6 +11,7 @@ import { planScenes } from "../planner/scenePlanner.js";
 import { sourceAssetsForProject } from "../sourcing/sourceAssets.js";
 import { reviewProjectAssets } from "../review/reviewAssets.js";
 import { buildTimelineForProject } from "../timeline/buildTimeline.js";
+import { renderProjectTimeline } from "../render/renderTimeline.js";
 import { ytDlpAvailable } from "../sourcing/ytDlp.js";
 import { checkBinaries } from "../utils/ffmpeg.js";
 
@@ -332,6 +333,63 @@ program
         console.log(`  … ${res.timeline.warnings.length - 8} more`);
       }
     }
+  });
+
+program
+  .command("render")
+  .description(
+    "Phase 6 — render projects/<slug>/render/timeline.json to MP4 via Remotion (local)",
+  )
+  .requiredOption("-p, --project <name>", "Project name")
+  .option("-o, --output <path>", "Output file (default: projects/<slug>/exports/<slug>-<timestamp>.mp4)")
+  .option("--codec <name>", "h264 | h265 | vp8 | vp9 | prores", "h264")
+  .option("--concurrency <n>", "Parallel browser tabs Remotion uses", (v) => parseInt(v, 10))
+  .option("--image-format <fmt>", "jpeg | png", "jpeg")
+  .option("--jpeg-quality <n>", "1..100 (jpeg only)", (v) => parseInt(v, 10), 85)
+  .option("--overwrite", "Overwrite existing output file", false)
+  .option(
+    "--range <start,end>",
+    "Render only this seconds range (e.g. 12.0,30.0) — useful for previews",
+  )
+  .action(async (opts: {
+    project: string;
+    output?: string;
+    codec: "h264" | "h265" | "vp8" | "vp9" | "prores";
+    concurrency?: number;
+    imageFormat: "jpeg" | "png";
+    jpegQuality: number;
+    overwrite?: boolean;
+    range?: string;
+  }) => {
+    let range: { start: number; end: number } | undefined;
+    if (opts.range) {
+      const [s, e] = opts.range.split(",").map((x) => parseFloat(x.trim()));
+      if (
+        s === undefined ||
+        e === undefined ||
+        !Number.isFinite(s) ||
+        !Number.isFinite(e) ||
+        e <= s
+      ) {
+        console.error("--range must be \"start,end\" with end > start");
+        process.exit(2);
+      }
+      range = { start: s, end: e };
+    }
+    const res = await renderProjectTimeline({
+      projectName: opts.project,
+      outputPath: opts.output,
+      codec: opts.codec,
+      concurrency: opts.concurrency,
+      imageFormat: opts.imageFormat,
+      jpegQuality: opts.jpegQuality,
+      overwrite: opts.overwrite,
+      rangeSeconds: range,
+    });
+    console.log("mp4 →", res.outputPath);
+    console.log(
+      `${res.frames} frames | ${res.durationSeconds.toFixed(1)}s | ${(res.bytes / 1024 / 1024).toFixed(1)} MB`,
+    );
   });
 
 program
