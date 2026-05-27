@@ -4,3 +4,4 @@ librosa>=0.10.2
 soundfile>=0.12.1
 scipy>=1.11
 opencv-python>=4.9
+faster-whisper>=1.0.3
