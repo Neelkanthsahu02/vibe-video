@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "outDir": "../../dist-desktop/renderer-typecheck",
+    "jsx": "react-jsx",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": [
+    "./**/*.ts",
+    "./**/*.tsx",
+    "../../src/desktop/**/*.ts",
+    "../../src/schemas/**/*.ts"
+  ],
+  "exclude": ["node_modules", "../../dist", "../../dist-desktop"]
+}

@@ -384,8 +384,74 @@ npx tsx src/cli/index.ts render -p khloe-tristan-timeline \
 Render reports a single throttled progress line per phase (bundle, render)
 so logs stay readable on non-TTY shells.
 
-## Next phases (not yet implemented)
+## Phase 7 — Electron desktop app
 
-- Phase 7: Electron desktop app.
+`desktop/` wraps the Phase 1–6 CLI flow in a local Electron app. The
+renderer is a Vite + React UI; the main process calls the same TypeScript
+modules the CLI uses (no shell-spawning) and streams progress events
+back via IPC.
+
+What the app surfaces:
+
+- **Sidebar** — channel Style Libraries detected under `style-library/`
+  and projects under `projects/` with status badges.
+- **Create project** — name, channel binding, paste-or-pick script, pick
+  voiceover. Files are copied into `projects/<slug>/input/`.
+- **Pipeline tab** — one button per phase (plan / source / review /
+  build-timeline / render) with live status (counts of beats, candidates,
+  accepted assets, warnings) plus a streaming progress log.
+- **Scenes & Assets tab** — every beat with narration, style rule citation,
+  and a thumbnail grid of its candidates. Each thumbnail shows the
+  current accept/reject verdict; ✓/✗ toggles flip the verdict in
+  `asset_review.json` in place. **"Replace…"** pops a file picker; the
+  chosen image/video is copied into `candidates/`, registered in the
+  manifest, and marked accepted as the new `best_asset_id` for the scene.
+- **Exports tab** — every MP4 in `projects/<slug>/exports/` with Reveal /
+  Open buttons.
+
+### Dev
+
+```bash
+npm install
+npm run desktop:dev    # spawns vite + electron with hot reload
+```
+
+### Build / packaging
+
+```bash
+npm run desktop:build  # tsc main process + vite build renderer
+npm run desktop:start  # build + launch
+# (electron-builder packaging recipe is intentionally not in this repo yet)
+```
+
+`webSecurity: false` is enabled in the BrowserWindow so the renderer can
+load `file://` thumbnails and clips. No remote content is loaded.
+
+### Architecture
+
+```
+desktop/
+├── main/           # electron main process (CJS preload, ESM main)
+│   ├── main.ts       # window + IPC bootstrap
+│   ├── ipc.ts        # vibe:* handler registry
+│   ├── api.ts        # wrapper around Phase 1–6 modules
+│   ├── preload.cts   # contextBridge → window.vibe
+│   └── tsconfig.json # → dist-desktop/main/
+├── renderer/       # vite + react
+│   ├── index.html
+│   ├── main.tsx
+│   ├── App.tsx
+│   ├── components/
+│   │   ├── Sidebar.tsx
+│   │   ├── CreateProjectModal.tsx
+│   │   ├── ProjectWorkspace.tsx
+│   │   ├── PhasePipeline.tsx
+│   │   ├── ScenesView.tsx
+│   │   ├── ExportsView.tsx
+│   │   └── EmptyState.tsx
+│   └── styles.css
+└── vite.config.ts
+src/desktop/api-types.ts  # shared IPC contract
+```
 - Phase 6: `vibe render` — local Remotion render.
 - Phase 7: Electron desktop app.

@@ -4,6 +4,7 @@
   "private": true,
   "description": "Autonomous AI Video Editor — Channel Style Library Builder",
   "type": "module",
+  "main": "dist-desktop/main/desktop/main/main.js",
   "bin": {
     "vibe": "dist/cli/index.js"
   },
@@ -11,9 +12,14 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli/index.ts",
     "vibe": "tsx src/cli/index.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.remotion.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.remotion.json && tsc --noEmit -p desktop/renderer/tsconfig.json",
     "remotion:studio": "remotion studio remotion/index.ts",
-    "remotion:render": "remotion render remotion/index.ts VibeVideo"
+    "remotion:render": "remotion render remotion/index.ts VibeVideo",
+    "desktop:dev": "concurrently -k -n vite,electron -c blue,magenta \"vite -c desktop/vite.config.ts\" \"wait-on tcp:5180 && npm run desktop:main:build && cross-env VIBE_DEV_URL=http://localhost:5180 electron dist-desktop/main/desktop/main/main.js\"",
+    "desktop:main:build": "tsc -p desktop/main/tsconfig.json",
+    "desktop:renderer:build": "vite build -c desktop/vite.config.ts",
+    "desktop:build": "npm run desktop:main:build && npm run desktop:renderer:build",
+    "desktop:start": "npm run desktop:build && electron dist-desktop/main/desktop/main/main.js"
   },
   "dependencies": {
     "@remotion/bundler": "^4.0.0",
@@ -34,7 +40,13 @@
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "wait-on": "^8.0.1"
   }
 }
